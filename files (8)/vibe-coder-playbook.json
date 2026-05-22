@@ -1,0 +1,129 @@
+{
+  "name": "Vibe Coder (AI-Generated Code)",
+  "version": "1.0.0",
+  "description": "Built specifically for teams shipping AI-generated code from Cursor, Claude Code, GitHub Copilot, and similar tools. Catches the failure patterns that AI models produce most often — type shortcuts, missing error handling, hallucinated APIs, and structural debt that compounds fast when you're shipping at AI speed.",
+  "author": "Solon AI",
+  "tags": ["ai-generated", "cursor", "claude-code", "copilot", "vibe-coding"],
+  "rules": [
+    {
+      "id": "no-any-escape-hatches",
+      "title": "No 'any' type escape hatches",
+      "severity": "blocking",
+      "description": "AI models default to 'any' when they're unsure about a type. This is the #1 TypeScript mistake in AI-generated code and silently disables type checking across entire call chains. Every 'any' must be replaced with a concrete type or 'unknown'.",
+      "examples": {
+        "bad": "function transform(data: any): any { return data.map((item: any) => item.value); }",
+        "good": "interface DataItem { value: string; } function transform(data: DataItem[]): string[] { return data.map(item => item.value); }"
+      }
+    },
+    {
+      "id": "no-unhandled-promises",
+      "title": "No floating promises or unhandled async operations",
+      "severity": "blocking",
+      "description": "AI-generated code frequently produces async calls without await or .catch(). These fail silently in production. Every Promise must be awaited or explicitly handled.",
+      "examples": {
+        "bad": "function saveUser(user: User) { db.users.insert(user); sendWelcomeEmail(user.email); }",
+        "good": "async function saveUser(user: User): Promise<void> { await db.users.insert(user); await sendWelcomeEmail(user.email); }"
+      }
+    },
+    {
+      "id": "no-hallucinated-apis",
+      "title": "All imported modules and methods must exist",
+      "severity": "blocking",
+      "description": "AI models frequently import functions, methods, and modules that do not exist in the codebase or package. Verify every import resolves to a real export before merging.",
+      "examples": {
+        "bad": "import { formatCurrency, parseAmount, roundToNearest } from '@/utils/currency'; // only formatCurrency exists",
+        "good": "Verify each import exists: check the actual export list of the module before merging."
+      }
+    },
+    {
+      "id": "no-duplicate-logic",
+      "title": "No copy-pasted logic blocks",
+      "severity": "warning",
+      "description": "AI tools often solve the same problem multiple times in different files instead of reusing existing utilities. Blocks of logic that appear 3+ times must be extracted into a shared function.",
+      "examples": {
+        "bad": "// Same date formatting logic in UserCard.tsx, InvoiceRow.tsx, and ReportTable.tsx",
+        "good": "// Extract to utils/formatDate.ts and import where needed"
+      }
+    },
+    {
+      "id": "no-missing-error-boundaries",
+      "title": "Async UI operations must have error states",
+      "severity": "warning",
+      "description": "AI-generated components frequently handle the happy path and nothing else. Any component performing async operations must handle loading, error, and empty states explicitly.",
+      "examples": {
+        "bad": "const { data } = useQuery(fetchOrders); return <OrderList orders={data} />;",
+        "good": "const { data, isLoading, error } = useQuery(fetchOrders); if (isLoading) return <Skeleton />; if (error) return <ErrorMessage error={error} />; if (!data?.length) return <EmptyState />; return <OrderList orders={data} />;"
+      }
+    },
+    {
+      "id": "no-hardcoded-magic-values",
+      "title": "No unexplained magic numbers or strings",
+      "severity": "warning",
+      "description": "AI models produce hardcoded values like timeouts, limits, and thresholds without explanation. These must be named constants with a comment explaining their origin.",
+      "examples": {
+        "bad": "setTimeout(callback, 3000); if (items.length > 50) { paginate(); }",
+        "good": "const TOAST_DURATION_MS = 3000; // matches design system spec\nconst PAGE_SIZE = 50; // API max per https://docs.example.com/pagination\nsetTimeout(callback, TOAST_DURATION_MS);"
+      }
+    },
+    {
+      "id": "no-console-logs",
+      "title": "No console.log debug statements",
+      "severity": "warning",
+      "description": "AI models insert console.log statements throughout generated code for debugging. Remove all console.log, console.warn, and console.error calls before merging unless they are intentional application logging.",
+      "examples": {
+        "bad": "console.log('response:', response); console.log('user data:', userData);",
+        "good": "Remove debug logs. Use a structured logger if application-level logging is needed."
+      }
+    },
+    {
+      "id": "verify-third-party-methods",
+      "title": "Verify third-party library method signatures",
+      "severity": "blocking",
+      "description": "AI models are frequently wrong about third-party library APIs — using deprecated methods, wrong argument order, or methods from different library versions. Check the actual installed version's docs for every third-party call.",
+      "examples": {
+        "bad": "stripe.charges.create({ amount, currency, source: token }); // deprecated Charges API",
+        "good": "stripe.paymentIntents.create({ amount, currency, payment_method: paymentMethodId }); // current API"
+      }
+    },
+    {
+      "id": "no-missing-loading-keys",
+      "title": "List rendering must include stable keys",
+      "severity": "warning",
+      "description": "AI-generated list rendering consistently omits or uses unstable keys (like array index). Use unique, stable IDs from the data.",
+      "examples": {
+        "bad": "items.map((item, index) => <Row key={index} item={item} />)",
+        "good": "items.map(item => <Row key={item.id} item={item} />)"
+      }
+    },
+    {
+      "id": "no-overly-broad-catch",
+      "title": "Error handling must be specific, not a silent catch-all",
+      "severity": "warning",
+      "description": "AI models generate broad try/catch blocks that swallow errors silently. Catch blocks must either re-throw, log with context, or handle the error in a user-visible way. An empty catch block is never acceptable.",
+      "examples": {
+        "bad": "try { await riskyOperation(); } catch (e) {}",
+        "good": "try { await riskyOperation(); } catch (error) { logger.error({ error, context: 'riskyOperation' }, 'Operation failed'); throw new AppError('Operation failed', { cause: error }); }"
+      }
+    },
+    {
+      "id": "no-untested-critical-paths",
+      "title": "Critical business logic must have at least one test",
+      "severity": "info",
+      "description": "AI-generated code for payment processing, authentication, data mutation, and other critical paths must include at least one unit test. This is the area AI gets most wrong and humans catch least.",
+      "examples": {
+        "bad": "A new calculateInvoiceTotal() function with no corresponding test file.",
+        "good": "A calculateInvoiceTotal.test.ts covering at least the happy path, zero items, and discount application."
+      }
+    },
+    {
+      "id": "no-unnecessary-useeffect",
+      "title": "Do not use useEffect to derive state from props",
+      "severity": "warning",
+      "description": "AI models overuse useEffect for state derivation that should be computed directly. If a value can be calculated from existing state or props during render, do it inline — not in a useEffect with setState.",
+      "examples": {
+        "bad": "const [fullName, setFullName] = useState(''); useEffect(() => { setFullName(`${firstName} ${lastName}`); }, [firstName, lastName]);",
+        "good": "const fullName = `${firstName} ${lastName}`;"
+      }
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "name": "Next.js + TypeScript",
+  "version": "1.0.0",
+  "description": "Enforces Next.js 14+ and TypeScript best practices. Covers App Router conventions, type safety, performance patterns, and common pitfalls in production Next.js codebases.",
+  "author": "Solon AI",
+  "tags": ["nextjs", "typescript", "react", "frontend"],
+  "rules": [
+    {
+      "id": "no-any-types",
+      "title": "No explicit 'any' types",
+      "severity": "blocking",
+      "description": "Explicit 'any' types defeat the purpose of TypeScript. Use 'unknown' and narrow the type, or define a proper interface.",
+      "examples": {
+        "bad": "function process(data: any) {}",
+        "good": "function process(data: unknown) { if (typeof data === 'string') {} }"
+      }
+    },
+    {
+      "id": "no-untyped-props",
+      "title": "All component props must be typed",
+      "severity": "blocking",
+      "description": "React components must have explicit prop type definitions using interfaces or type aliases. No implicit props.",
+      "examples": {
+        "bad": "export default function Card({ title, onClick }) {}",
+        "good": "interface CardProps { title: string; onClick: () => void; } export default function Card({ title, onClick }: CardProps) {}"
+      }
+    },
+    {
+      "id": "use-server-components-by-default",
+      "title": "Prefer Server Components unless client interactivity is needed",
+      "severity": "warning",
+      "description": "In the App Router, components are Server Components by default. Only add 'use client' when you need useState, useEffect, event listeners, or browser APIs. Unnecessarily marking components as client-side increases bundle size.",
+      "examples": {
+        "bad": "'use client'; export default function StaticCard({ title }: { title: string }) { return <div>{title}</div>; }",
+        "good": "export default function StaticCard({ title }: { title: string }) { return <div>{title}</div>; }"
+      }
+    },
+    {
+      "id": "no-useeffect-for-data-fetching",
+      "title": "Do not use useEffect for data fetching",
+      "severity": "blocking",
+      "description": "In Next.js App Router, fetch data in Server Components or use React Query / SWR in Client Components. useEffect-based fetching causes waterfall requests, flickering, and no caching.",
+      "examples": {
+        "bad": "useEffect(() => { fetch('/api/data').then(r => r.json()).then(setData); }, []);",
+        "good": "const data = await fetch('/api/data', { next: { revalidate: 60 } }).then(r => r.json());"
+      }
+    },
+    {
+      "id": "no-console-log-in-production",
+      "title": "No console.log statements",
+      "severity": "warning",
+      "description": "Remove console.log before merging. Use a structured logger or Next.js built-in logging. Console statements leak implementation details and degrade performance.",
+      "examples": {
+        "bad": "console.log('user data:', user);",
+        "good": "logger.info({ userId: user.id }, 'User loaded');"
+      }
+    },
+    {
+      "id": "use-next-image",
+      "title": "Use next/image instead of <img>",
+      "severity": "warning",
+      "description": "Raw <img> tags bypass Next.js image optimization (lazy loading, WebP conversion, size optimization). Always use the Image component from next/image.",
+      "examples": {
+        "bad": "<img src='/hero.png' alt='Hero' />",
+        "good": "import Image from 'next/image'; <Image src='/hero.png' alt='Hero' width={800} height={400} />"
+      }
+    },
+    {
+      "id": "use-next-link",
+      "title": "Use next/link instead of <a> for internal navigation",
+      "severity": "warning",
+      "description": "Raw anchor tags cause full page reloads and bypass Next.js prefetching. Use the Link component for all internal routes.",
+      "examples": {
+        "bad": "<a href='/dashboard'>Dashboard</a>",
+        "good": "import Link from 'next/link'; <Link href='/dashboard'>Dashboard</Link>"
+      }
+    },
+    {
+      "id": "handle-async-errors",
+      "title": "All async functions must handle errors",
+      "severity": "blocking",
+      "description": "Unhandled promise rejections crash the app silently in production. Wrap async calls in try/catch or use a result pattern.",
+      "examples": {
+        "bad": "async function getUser(id: string) { const user = await db.users.find(id); return user; }",
+        "good": "async function getUser(id: string) { try { const user = await db.users.find(id); return user; } catch (error) { logger.error({ error, id }, 'Failed to fetch user'); throw error; } }"
+      }
+    },
+    {
+      "id": "no-hardcoded-env-values",
+      "title": "No hardcoded environment-specific values",
+      "severity": "blocking",
+      "description": "URLs, API keys, and environment-specific strings must come from environment variables. Hardcoded values break across environments and leak secrets.",
+      "examples": {
+        "bad": "const API_URL = 'https://api.myapp.com';",
+        "good": "const API_URL = process.env.NEXT_PUBLIC_API_URL;"
+      }
+    },
+    {
+      "id": "route-handlers-validate-input",
+      "title": "Route handlers must validate request input",
+      "severity": "blocking",
+      "description": "All Next.js API route handlers must validate and sanitize incoming request data using zod or equivalent before processing. Never trust raw request input.",
+      "examples": {
+        "bad": "export async function POST(req: Request) { const { email } = await req.json(); await createUser(email); }",
+        "good": "const schema = z.object({ email: z.string().email() }); export async function POST(req: Request) { const body = schema.parse(await req.json()); await createUser(body.email); }"
+      }
+    },
+    {
+      "id": "no-missing-loading-states",
+      "title": "Async UI must have loading and error states",
+      "severity": "warning",
+      "description": "Any component that fetches data or performs async operations must handle loading and error states explicitly. Missing states cause layout shifts and confusing UX.",
+      "examples": {
+        "bad": "export default function UserList() { const { data } = useQuery('users', fetchUsers); return <div>{data?.map(u => <div>{u.name}</div>)}</div>; }",
+        "good": "export default function UserList() { const { data, isLoading, error } = useQuery('users', fetchUsers); if (isLoading) return <Skeleton />; if (error) return <ErrorState />; return <div>{data.map(u => <div key={u.id}>{u.name}</div>)}</div>; }"
+      }
+    },
+    {
+      "id": "use-proper-http-status-codes",
+      "title": "API routes must return correct HTTP status codes",
+      "severity": "warning",
+      "description": "Return semantically correct status codes. 200 for success, 201 for created, 400 for bad input, 401 for unauthenticated, 403 for unauthorized, 404 for not found, 500 for server errors. Never return 200 with an error body.",
+      "examples": {
+        "bad": "return NextResponse.json({ error: 'Not found' }, { status: 200 });",
+        "good": "return NextResponse.json({ error: 'User not found' }, { status: 404 });"
+      }
+    }
+  ]
+}
